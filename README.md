@@ -1,337 +1,184 @@
-# CUDA Samples
+# CUDA 12.8 Samples Setup Guide
 
-Samples for CUDA Developers which demonstrates features in CUDA Toolkit. This version supports [CUDA Toolkit 12.6](https://developer.nvidia.com/cuda-downloads).
+This guide explains how to install CUDA Toolkit 12.8, configure GCC 14 as the default compiler, fix a header file compatibility issue, and build and run CUDA samples.
 
-## Release Notes
+---
 
-This section describes the release notes for the CUDA Samples on GitHub only.
+## 1. Install CUDA Toolkit 12.8
 
-### Change Log
+Download and install **CUDA Toolkit 12.8** from NVIDIA:
 
-### [Revision History](./CHANGELOG.md)
+👉 [CUDA 12.8 Download (Fedora 41 x86_64)](https://developer.nvidia.com/cuda-12-8-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Fedora&target_version=41)
 
-## Getting Started
+Follow the installation steps provided for your distribution.
 
-### Prerequisites
+---
 
-Download and install the [CUDA Toolkit 12.8](https://developer.nvidia.com/cuda-downloads) for your corresponding platform.
-For system requirements and installation instructions of cuda toolkit, please refer to the [Linux Installation Guide](http://docs.nvidia.com/cuda/cuda-installation-guide-linux/), and the [Windows Installation Guide](http://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html).
+## 2. Install GCC 14 and Make It Default
 
-### Getting the CUDA Samples
+CUDA 12.8 does not support GCC versions higher than 14.x.x. Install GCC 14 and configure it as the default compiler:
 
-Using git clone the repository of CUDA Samples using the command below.
-```
-git clone https://github.com/NVIDIA/cuda-samples.git
-```
-
-Without using git the easiest way to use these samples is to download the zip file containing the current version by clicking the "Download ZIP" button on the repo page. You can then unzip the entire archive and use the samples.
-
-## Building CUDA Samples
-
-### Building CUDA Samples
-
-The CUDA Samples are built using CMake. Follow the instructions below for building on Linux, Windows, and for cross-compilation to Tegra devices.
-
-### Linux
-
-Ensure that CMake (version 3.20 or later) is installed. Install it using your package manager if necessary:
-
-e.g.
-```sudo apt install cmake```
-
-Navigate to the root of the cloned repository and create a build directory:
-```
-mkdir build && cd build
-```
-Configure the project with CMake:
-```
-cmake ..
-```
-Build the samples:
-```
-make -j$(nproc)
-```
-Run the samples from their respective directories in the build folder. You can also follow this process from and subdirectory of the samples repo, or from within any individual sample.
-
-### Windows
-
-Language services for CMake are available in Visual Studio 2019 version 16.5 or later, and you can directly import the CUDA samples repository from either the root level or from any
-subdirectory or individual sample.
-
-To build from the command line, open the `x64 Native Tools Command Prompt for VS` provided with your Visual Studio installation.
-
-Navigate to the root of the cloned repository and create a build directory:
-```
-mkdir build && cd build
-```
-Configure the project with CMake - for example:
-```
-cmake .. -G "Visual Studio 16 2019" -A x64
-```
-Open the generated solution file CUDA_Samples.sln in Visual Studio. Build the samples by selecting the desired configuration (e.g., Debug or Release) and pressing F7 (Build Solution).
-
-Run the samples from the output directories specified in Visual Studio.
-
-### Platform-Specific Samples
-
-Some CUDA samples are specific to certain platforms, and require passing flags into CMake to enable. In particular, we define the following platform-specific flags:
-
-* `BUILD_TEGRA` - for Tegra-specific samples
-
-To build these samples, set the variables either on the command line or through your CMake GUI. For example:
-
-```
-cmake -DBUILD_TEGRA=True ..
+```bash
+sudo dnf install gcc-14 g++-14
+sudo alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60
+sudo alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 60
+sudo alternatives --config gcc
+sudo alternatives --config g++
 ```
 
-### Cross-Compilation for Tegra Platforms
+Verify:
 
-Install the NVIDIA toolchain and cross-compilation environment for Tegra devices as described in the Tegra Development Guide.
-
-Ensure that CMake (version 3.20 or later) is installed.
-
-Navigate to the root of the cloned repository and create a build directory:
-```
-mkdir build && cd build
-```
-Configure the project with CMake, specifying the Tegra toolchain file:
-```
-cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/tegra/toolchain.cmake
-```
-Build the samples:
-```
-make -j$(nproc)
-```
-Transfer the built binaries to the Tegra device and execute them there.
-
-### Building for Automotive Linux Platforms
-
-These platforms require additional information to be passed to CMake on the command line to ensure proper resolution of all necessary include and library files.
-Instead of being in the default location, `/usr/local/cuda/include` or `/usr/local/cuda/lib64`, you must point to architecture-specific paths:
-
-`/usr/local/cuda/<ARCH>/targets/aarch64-linux/lib`
-and
-`/usr/local/cuda-12.8/<ARCH>/include`
-
-An example build might look like this:
-
-```
-$ mkdir build
-$ cd build
-
-$ cmake -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_LIBRARY_PATH=/usr/local/cuda/orin/lib64/ -DCMAKE_INCLUDE_PATH=/usr/local/cuda/orin/include -DBUILD_TEGRA=True ..
+```bash
+gcc --version
+g++ --version
 ```
 
-### QNX
+Both should show **GCC 14.x**.
+
+---
+
+## 3. Patch `math_functions.h`
+
+CUDA 12.8 has a known issue with **glibc 2.41+** that causes errors like:
+
+```
+error: exception specification is incompatible
+```
+
+### Reference
+- NVIDIA Developer Forum: [Exception specification incompatible for cospi/sinpi with glibc 2.41](https://forums.developer.nvidia.com/t/error-exception-specification-is-incompatible-for-cospi-sinpi-cospif-sinpif-with-glibc-2-41/323591/4?u=epk)
+
+### Patch Instructions
+
+1. Edit the file:
+
+   ```
+   /usr/local/cuda-12.8/targets/x86_64-linux/include/crt/math_functions.h
+   ```
 
-Note that in the current branch sample cross-compilation for QNX is not fully validated. This placeholder will be updated in the
-near future with QNX cross-compilation instructions. In the meantime, if you want to cross-compile for QNX please check out one
-of the previous tags prior to the CMake build system transition in 12.8.
+2. Apply the following patch (example shown for Gentoo ~amd64, works with CUDA 12.6.1 and 12.8.0):
 
-## Samples list
+```diff
+--- a/builds.orig/cuda_nvcc/targets/x86_64-linux/include/crt/math_functions.h	2024-08-23 00:25:39.000000000 +0200
++++ b/builds/cuda_nvcc/targets/x86_64-linux/include/crt/math_functions.h	2025-02-17 01:19:44.270292640 +0100
+@@ -2547,7 +2547,7 @@
+  *
+  * \note_accuracy_double
+  */
+-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 sinpi(double x);
++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 sinpi(double x) noexcept (true);
+ /**
+  * \ingroup CUDA_MATH_SINGLE
+  * \brief Calculate the sine of the input argument 
+@@ -2570,7 +2570,7 @@
+  *
+  * \note_accuracy_single
+  */
+-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  sinpif(float x);
++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  sinpif(float x) noexcept (true);
+ /**
+  * \ingroup CUDA_MATH_DOUBLE
+  * \brief Calculate the cosine of the input argument 
+@@ -2592,7 +2592,7 @@
+  *
+  * \note_accuracy_double
+  */
+-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 cospi(double x);
++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 cospi(double x) noexcept (true);
+ /**
+  * \ingroup CUDA_MATH_SINGLE
+  * \brief Calculate the cosine of the input argument 
+@@ -2614,7 +2614,7 @@
+  *
+  * \note_accuracy_single
+  */
+-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  cospif(float x);
++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  cospif(float x) noexcept (true);
+ /**
+  * \ingroup CUDA_MATH_DOUBLE
+  * \brief  Calculate the sine and cosine of the first input argument
+```
 
-### [0. Introduction](./Samples/0_Introduction/README.md)
-Basic CUDA samples for beginners that illustrate key concepts with using CUDA and CUDA runtime APIs.
+3. Save the file.
 
-### [1. Utilities](./Samples/1_Utilities/README.md)
-Utility samples that demonstrate how to query device capabilities and measure GPU/CPU bandwidth.
+---
 
-### [2. Concepts and Techniques](./Samples/2_Concepts_and_Techniques/README.md)
-Samples that demonstrate CUDA related concepts and common problem solving techniques.
+## 4. Install CMake (3.20+)
 
-### [3. CUDA Features](./Samples/3_CUDA_Features/README.md)
-Samples that demonstrate CUDA Features (Cooperative Groups, CUDA Dynamic Parallelism, CUDA Graphs etc).
+Check if you have CMake installed:
 
-### [4. CUDA Libraries](./Samples/4_CUDA_Libraries/README.md)
-Samples that demonstrate how to use CUDA platform libraries (NPP, NVJPEG, NVGRAPH cuBLAS, cuFFT, cuSPARSE, cuSOLVER and cuRAND).
+```bash
+cmake --version
+```
 
-### [5. Domain Specific](./Samples/5_Domain_Specific/README.md)
-Samples that are specific to domain (Graphics, Finance, Image Processing).
+If version < 3.20, update:
 
-### [6. Performance](./Samples/6_Performance/README.md)
-Samples that demonstrate performance optimization.
+```bash
+sudo apt install cmake    # Ubuntu/Debian
+# or
+sudo dnf install cmake    # Fedora
+```
 
-### [7. libNVVM](./Samples/7_libNVVM/README.md)
-Samples that demonstrate the use of libNVVVM and NVVM IR.
+---
 
-## Dependencies
+## 5. Build CUDA Samples
 
-Some CUDA Samples rely on third-party applications and/or libraries, or features provided by the CUDA Toolkit and Driver, to either build or execute. These dependencies are listed below.
+1. Clone and navigate to your CUDA samples repository:
 
-If a sample has a third-party dependency that is available on the system, but is not installed, the sample will waive itself at build time.
+   ```bash
+   git clone https://github.com/bavanDA/cuda-samples-compute_50.git
+   cd cuda-samples-compute_50
+   ```
 
-Each sample's dependencies are listed in its README's Dependencies section.
+2. Create and enter a build directory:
 
-### Third-Party Dependencies
+   ```bash
+   mkdir build && cd build
+   ```
 
-These third-party dependencies are required by some CUDA samples. If available, these dependencies are either installed on your system automatically, or are installable via your system's package manager (Linux) or a third-party website.
+3. Configure the project:
 
-#### FreeImage
+   ```bash
+   cmake ..
+   ```
 
-FreeImage is an open source imaging library. FreeImage can usually be installed on Linux using your distribution's package manager system. FreeImage can also be downloaded from the FreeImage website.
+4. Build using all cores:
 
-To set up FreeImage on a Windows system, extract the FreeImage DLL distribution into the folder `../../../Common/FreeImage/Dist/x64` such that it contains the .h and .lib files. Copy the .dll file to the Release/ Debug/ execution folder or pass the FreeImage folder when cmake configuring with the `-DFREEIMAGE_INCLUDE_DIR` and `-DFREEIMAGE_LIBRARY` options.
+   ```bash
+   make -j$(nproc)
+   ```
 
-#### Message Passing Interface
+---
 
-MPI (Message Passing Interface) is an API for communicating data between distributed processes. A MPI compiler can be installed using your Linux distribution's package manager system. It is also available on some online resources, such as [Open MPI](http://www.open-mpi.org/). On Windows, to build and run MPI-CUDA applications one can install [MS-MPI SDK](https://msdn.microsoft.com/en-us/library/bb524831(v=vs.85).aspx).
+## 6. Run Samples
 
-#### Only 64-Bit
+You can run any sample from the `build` folder. For example:
 
-Some samples can only be run on a 64-bit operating system.
+```bash
+./Samples/1_Utilities/deviceQuery/deviceQuery
+```
 
-#### DirectX
+---
 
-DirectX is a collection of APIs designed to allow development of multimedia applications on Microsoft platforms. For Microsoft platforms, NVIDIA's CUDA Driver supports DirectX. Several CUDA Samples for Windows demonstrates CUDA-DirectX Interoperability, for building such samples one needs to install Microsoft Visual Studio 2012 or higher which provides Microsoft Windows SDK for Windows 8.
+## 7. Run All Tests
 
-#### DirectX12
+From the **samples root**:
 
-DirectX 12 is a collection of advanced low-level programming APIs which can reduce driver overhead, designed to allow development of multimedia applications on Microsoft platforms starting with Windows 10 OS onwards. For Microsoft platforms, NVIDIA's CUDA Driver supports DirectX. Few CUDA Samples for Windows demonstrates CUDA-DirectX12 Interoperability, for building such samples one needs to install [Windows 10 SDK or higher](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk), with VS 2015 or VS 2017.
+```bash
+cd ..
+python3 run_tests.py --output ./test --dir ./build/Samples --config test_args.json
+```
 
-#### OpenGL
+⚠️ **Note:** Not all tests will pass, because some require higher GPU compute power.
 
-OpenGL is a graphics library used for 2D and 3D rendering. On systems which support OpenGL, NVIDIA's OpenGL implementation is provided with the CUDA Driver.
+---
 
-#### OpenGL ES
+## Troubleshooting
 
-OpenGL ES is an embedded systems graphics library used for 2D and 3D rendering. On systems which support OpenGL ES, NVIDIA's OpenGL ES implementation is provided with the CUDA Driver.
+- If you see **incompatible exception specification errors**, confirm you patched `math_functions.h`.
+- If compilation fails, verify **GCC 14** is active:  
+  ```bash
+  gcc --version
+  ```
+- Use `nvidia-smi` to confirm driver and CUDA runtime compatibility.
 
-#### Vulkan
-
-Vulkan is a low-overhead, cross-platform 3D graphics and compute API. Vulkan targets high-performance realtime 3D graphics applications such as video games and interactive media across all platforms. On systems which support Vulkan, NVIDIA's Vulkan implementation is provided with the CUDA Driver. For building and running Vulkan applications one needs to install the [Vulkan SDK](https://www.lunarg.com/vulkan-sdk/).
-
-#### GLFW
-GLFW is a lightweight, open-source library designed for managing OpenGL, OpenGL ES, and Vulkan contexts. It simplifies the process of creating and managing windows, handling user input (keyboard, mouse, and joystick), and working with multiple monitors in a cross-platform manner.
-
-To set up GLFW on a Windows system, Download the pre-built binaries from [GLFW website](https://www.glfw.org/download.html) and extract the zip file into the folder, pass the GLFW include header as `-DGLFW_INCLUDE_DIR` for cmake configuring and follow the Build_instructions.txt in the sample folder to set up the t.
-
-#### OpenMP
-
-OpenMP is an API for multiprocessing programming. OpenMP can be installed using your Linux distribution's package manager system. It usually comes preinstalled with GCC. It can also be found at the [OpenMP website](http://openmp.org/).
-
-#### Screen
-
-Screen is a windowing system found on the QNX operating system. Screen is usually found as part of the root filesystem.
-
-#### X11
-
-X11 is a windowing system commonly found on *-nix style operating systems. X11 can be installed using your Linux distribution's package manager, and comes preinstalled on Mac OS X systems.
-
-#### EGL
-
-EGL is an interface between Khronos rendering APIs (such as OpenGL, OpenGL ES or OpenVG) and the underlying native platform windowing system.
-
-#### EGLOutput
-
-EGLOutput is a set of EGL extensions which allow EGL to render directly to the display.
-
-#### EGLSync
-
-EGLSync is a set of EGL extensions which provides sync objects that are synchronization primitive, representing events whose completion can be tested or waited upon.
-
-#### NVSCI
-
-NvSci is a set of communication interface libraries out of which CUDA interops with NvSciBuf and NvSciSync. NvSciBuf allows applications to allocate and exchange buffers in memory. NvSciSync allows applications to manage synchronization objects which coordinate when sequences of operations begin and end.
-
-#### NvMedia
-
-NvMedia provides powerful processing of multimedia data for true hardware acceleration across NVIDIA Tegra devices. Applications leverage the NvMedia Application Programming Interface (API) to process the image and video data.
-
-### CUDA Features
-
-These CUDA features are needed by some CUDA samples. They are provided by either the CUDA Toolkit or CUDA Driver. Some features may not be available on your system.
-
-#### CUFFT Callback Routines
-
-CUFFT Callback Routines are user-supplied kernel routines that CUFFT will call when loading or storing data. These callback routines are only available on Linux x86_64 and ppc64le systems.
-
-#### CUDA Dynamic Parallellism
-
-CDP (CUDA Dynamic Parallellism) allows kernels to be launched from threads running on the GPU. CDP is only available on GPUs with SM architecture of 3.5 or above.
-
-#### Multi-block Cooperative Groups
-
-Multi Block Cooperative Groups(MBCG) extends Cooperative Groups and the CUDA programming model to express inter-thread-block synchronization. MBCG is available on GPUs with Pascal and higher architecture.
-
-#### Multi-Device Cooperative Groups
-
- Multi Device Cooperative Groups extends Cooperative Groups and the CUDA programming model enabling thread blocks executing on multiple GPUs to cooperate and synchronize as they execute. This feature is available on GPUs with Pascal and higher architecture.
-
-#### CUBLAS
-
-CUBLAS (CUDA Basic Linear Algebra Subroutines) is a GPU-accelerated version of the BLAS library.
-
-#### CUDA Interprocess Communication
-
-IPC (Interprocess Communication) allows processes to share device pointers.
-
-#### CUFFT
-
-CUFFT (CUDA Fast Fourier Transform) is a GPU-accelerated FFT library.
-
-#### CURAND
-
-CURAND (CUDA Random Number Generation) is a GPU-accelerated RNG library.
-
-#### CUSPARSE
-
-CUSPARSE (CUDA Sparse Matrix) provides linear algebra subroutines used for sparse matrix calculations.
-
-#### CUSOLVER
-
-CUSOLVER library is a high-level package based on the CUBLAS and CUSPARSE libraries. It combines three separate libraries under a single umbrella, each of which can be used independently or in concert with other toolkit libraries. The intent ofCUSOLVER is to provide useful LAPACK-like features, such as common matrix factorization and triangular solve routines for dense matrices, a sparse least-squares solver and an eigenvalue solver. In addition cuSolver provides a new refactorization library useful for solving sequences of matrices with a shared sparsity pattern.
-
-#### NPP
-
-NPP (NVIDIA Performance Primitives) provides GPU-accelerated image, video, and signal processing functions.
-
-#### NVGRAPH
-
-NVGRAPH is a GPU-accelerated graph analytics library.
-
-#### NVJPEG
-
-NVJPEG library provides high-performance, GPU accelerated JPEG decoding functionality for image formats commonly used in deep learning and hyperscale multimedia applications.
-
-#### NVRTC
-
-NVRTC (CUDA RunTime Compilation) is a runtime compilation library for CUDA C++.
-
-#### Stream Priorities
-
-Stream Priorities allows the creation of streams with specified priorities. Stream Priorities is only available on GPUs with SM architecture of 3.5 or above.
-
-#### Unified Virtual Memory
-
-UVM (Unified Virtual Memory) enables memory that can be accessed by both the CPU and GPU without explicit copying between the two. UVM is only available on Linux and Windows systems.
-
-#### 16-bit Floating Point
-
-FP16 is a 16-bit floating-point format. One bit is used for the sign, five bits for the exponent, and ten bits for the mantissa.
-
-#### C++11 CUDA
-
-NVCC support of [C++11 features](https://en.wikipedia.org/wiki/C++11).
-
-#### CMake
-
-The libNVVM samples are built using [CMake](https://cmake.org/) 3.10 or later.
-
-## Contributors Guide
-
-We welcome your input on issues and suggestions for samples. At this time we are not accepting contributions from the public, check back here as we evolve our contribution model.
-
-We use Google C++ Style Guide for all the sources https://google.github.io/styleguide/cppguide.html
-
-## Frequently Asked Questions
-
-Answers to frequently asked questions about CUDA can be found at http://developer.nvidia.com/cuda-faq and in the [CUDA Toolkit Release Notes](http://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html).
-
-## References
-
-*   [CUDA Programming Guide](http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html)
-*   [Accelerated Computing Blog](https://developer.nvidia.com/blog/?tags=accelerated-computing)
-
-## Attributions
-
-*   Teapot image is obtained from [Wikimedia](https://en.wikipedia.org/wiki/File:Original_Utah_Teapot.jpg) and is licensed under the Creative Commons [Attribution-Share Alike 2.0](https://creativecommons.org/licenses/by-sa/2.0/deed.en) Generic license. The image is modified for samples use cases.
